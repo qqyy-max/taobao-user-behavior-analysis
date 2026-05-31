@@ -1,0 +1,11 @@
+# Exclude data folder and compressed user data
+data/
+user_data.rar
+
+# Exclude local logs and notes
+记录.txt
+experiment_log.md
+insight_log.md
+
+# Exclude test scripts
+test.py
