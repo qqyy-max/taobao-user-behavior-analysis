@@ -33,8 +33,13 @@ WHERE 1=1
     AND raw_timestamp IS NOT NULL
     -- 仅保留四类合法行为
     AND behavior_type IN ('pv', 'fav', 'cart', 'buy')
-    -- 去掉离谱时间戳（限制在 2017 年内）
-    AND raw_timestamp BETWEEN 1483228800 AND 1514736000;
+    -- 严格限制到官方数据集窗口：2017-11-25 ~ 2017-12-03（9 天）
+    -- 边界经实证确认：min raw_ts of 2017-11-25 = 1511539200
+    --                 max raw_ts of 2017-12-03 = 1512316799
+    --                 min raw_ts of 2017-12-04 = 1512316805
+    -- 左闭右开：>= 1511539200 且 < 1512316805，恰好 9 天
+    AND raw_timestamp >= 1511539200
+    AND raw_timestamp <  1512316805;
 
 
 -- 3. 按日期维度添加派生字段，创建分析宽表
@@ -96,6 +101,39 @@ SELECT
     '行为分布(pv)',
     SUM(CASE WHEN behavior_type = 'pv' THEN 1 ELSE 0 END)
 FROM clean_data_enriched;
+
+
+-- 6. ★ 数据质量守卫：验证时间窗口严格为 9 天 ★
+--    若不满足（如早于 11-25 或晚于 12-03 的数据仍然存在），
+--    后续阶段不应继续。
+SELECT
+    'DATA QUALITY GUARD' AS check_name,
+    CASE
+        WHEN MIN(dt) = '2017-11-25'
+         AND MAX(dt) = '2017-12-03'
+         AND COUNT(DISTINCT dt) = 9
+        THEN 'PASS — 9-day window confirmed'
+        ELSE 'FAIL — date range mismatch, STOP HERE'
+    END AS result,
+    MIN(dt) AS min_date,
+    MAX(dt) AS max_date,
+    COUNT(DISTINCT dt) AS distinct_days
+FROM clean_data_enriched;
+
+-- 若上面输出 FAIL，后续 SQL 不应继续执行。
+-- 这里用 RAISE 方式确保 DuckDB 在检测到异常时抛出错误：
+SELECT
+    CASE
+        WHEN (SELECT COUNT(DISTINCT dt) FROM clean_data_enriched) != 9
+          OR (SELECT MIN(dt) FROM clean_data_enriched) != '2017-11-25'
+          OR (SELECT MAX(dt) FROM clean_data_enriched) != '2017-12-03'
+        THEN error('DATA QUALITY CHECK FAILED: expected 9 days (2017-11-25 ~ 2017-12-03), '
+                    || 'got ' || (SELECT COUNT(DISTINCT dt)::VARCHAR FROM clean_data_enriched) || ' days '
+                    || '(' || (SELECT MIN(dt)::VARCHAR FROM clean_data_enriched) || ' ~ '
+                    || (SELECT MAX(dt)::VARCHAR FROM clean_data_enriched) || '). '
+                    || 'Check raw_timestamp filter in data_cleaning.sql.')
+        ELSE 'DATA QUALITY CHECK PASSED: 9-day window confirmed.'
+    END AS guard_status;
 
 
 -- 6. 导出清洗后数据到 CSV（按日期排序）
