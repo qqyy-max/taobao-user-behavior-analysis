@@ -1,7 +1,8 @@
 # Exclude data folder and compressed user data
 data/
 user_data.rar
-
+#
+.gitignore
 # Exclude local logs and notes
 记录.txt
 experiment_log.md
@@ -9,3 +10,17 @@ insight_log.md
 
 # Exclude test scripts
 test.py
+check_tables.py
+
+# API 凭证，不要提交
+src/config.py
+# Claude
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.pyc
+
+# 导出文件
+exports/
+
