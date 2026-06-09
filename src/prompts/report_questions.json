@@ -1,0 +1,18 @@
+[
+  {
+    "title": "转化漏斗深度分析",
+    "question": "已知 PV→FAV 流失 60.2% 是最大断裂点，但加购 UV(215,167) 远超收藏 UV(113,717)——说明这是非线性漏斗。请结合 session_stats 数据，分析不同 Session 行为深度（1-5次 vs 6+次）的转化率差异，找出在 PV→CART 路径中哪类用户最容易在哪个阶段放弃，给出超出已知结论的增量发现。"
+  },
+  {
+    "title": "留存与首单转化关系",
+    "question": "已知 Day1 留存 78.8%、Day7 留存 98.5%（周末周期效应）。请分析 Day1-Day3 各 Cohort 的留存率差异，结合 daily_behavior_summary 分析新用户首次活跃日的行为特征（当天的 buy_rate）。重点找：哪些 Cohort 的 Day1 留存特别高或低？是否与该 Cohort 首次出现的星期几相关？"
+  },
+  {
+    "title": "用户群体增量洞察",
+    "question": "已知的 5 个 Cluster 特征（C0 高浏览低购买，C2 核心高价值等）。请查询 user_cluster_summary 和 user_segment_summary，找出以下超出 README 已有结论的增量发现：1）各 Cluster 的活跃天数和购买次数的组合特征；2）freq_group（高频/中频/低频/沉默）与 Cluster 的对应关系；3）哪个群体的'加购但未购买'倾向最高（如果聚合表有相关字段）。"
+  },
+  {
+    "title": "原始数据即席探索",
+    "question": "使用 query_raw 查询 clean_data.parquet 原始数据（注意先调用 get_business_context 获取正确的 parquet 路径）。探索聚合表无法呈现的规律：分析同一用户在同一天内的行为序列——在发生购买（buy）之前，该用户平均经历多少次 pv 和多少次 cart？对比购买用户和非购买用户的当天行为次数中位数。给出至少 2 个具体数字支撑的增量发现。"
+  }
+]
