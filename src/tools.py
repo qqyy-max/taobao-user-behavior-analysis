@@ -1,6 +1,7 @@
 import re
 import duckdb
 import json
+import sys
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
@@ -15,6 +16,11 @@ FIG_DIR.mkdir(parents=True, exist_ok=True)
 _ROOT = Path(__file__).parent.parent
 CLEAN_DATA_PATH = str(_ROOT / "data" / "clean_data.parquet")
 
+# 注入 agent/ 目录到 sys.path，确保可 import agent.reviewer
+_AGENT_DIR = str(_ROOT)
+if _AGENT_DIR not in sys.path:
+    sys.path.insert(0, _AGENT_DIR)
+
 
 # ── 原有工具 ──────────────────────────────────────────────
 
@@ -27,9 +33,12 @@ def list_tables() -> str:
 
 
 def get_table_schema(table_name: str) -> str:
-    with duckdb.connect(DB_PATH, read_only=True) as con:
-        df = con.execute(f"DESCRIBE {table_name}").fetchdf()
-    return df.to_json(orient="records", force_ascii=False)
+    try:
+        with duckdb.connect(DB_PATH, read_only=True) as con:
+            df = con.execute(f"DESCRIBE {table_name}").fetchdf()
+        return df.to_json(orient="records", force_ascii=False)
+    except Exception as e:
+        return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 
 def query_duckdb(sql: str) -> str:
@@ -45,20 +54,23 @@ def query_duckdb(sql: str) -> str:
 
 def plot_bar(title: str, x_col: str, y_col: str, sql: str) -> str:
     """查询数据并生成柱状图，返回文件路径"""
-    with duckdb.connect(DB_PATH, read_only=True) as con:
-        df = con.execute(sql).fetchdf()
+    try:
+        with duckdb.connect(DB_PATH, read_only=True) as con:
+            df = con.execute(sql).fetchdf()
 
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.bar(df[x_col].astype(str), df[y_col], color="#4C8BF5", edgecolor="white")
-    ax.set_title(title, fontsize=13, fontweight="bold")
-    ax.set_xlabel(x_col)
-    ax.set_ylabel(y_col)
-    fig.tight_layout()
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.bar(df[x_col].astype(str), df[y_col], color="#4C8BF5", edgecolor="white")
+        ax.set_title(title, fontsize=13, fontweight="bold")
+        ax.set_xlabel(x_col)
+        ax.set_ylabel(y_col)
+        fig.tight_layout()
 
-    fname = FIG_DIR / f"{title[:20].replace(' ', '_')}.png"
-    fig.savefig(fname, dpi=120)
-    plt.close(fig)
-    return str(fname)
+        fname = FIG_DIR / f"{title[:20].replace(' ', '_')}.png"
+        fig.savefig(fname, dpi=120)
+        plt.close(fig)
+        return str(fname)
+    except Exception as e:
+        return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 
 # ── 新增工具 ──────────────────────────────────────────────
@@ -231,35 +243,62 @@ def get_business_context() -> str:
 
 
 
+# 缓存连接对象，避免重复打开与关闭
+_RAW_CONN = None
+
 def query_raw(sql: str) -> str:
-    """对 clean_data.parquet 执行即席查询（独立内存连接），结果超 500 行截断"""
+    """对原始数据执行即席查询。优先连本地 DB_PATH 读带索引物理表，不存在则 fallback 到内存 Parquet 视图"""
+    global _RAW_CONN
     try:
-        with duckdb.connect(":memory:") as con:
-            # 注入路径变量，方便 SQL 里用 $clean_data 或直接 read_parquet
-            con.execute(f"SET search_path=main")
-            df = con.execute(sql).fetchdf()
-            truncated = len(df) > 500
-            if truncated:
-                df = df.head(500)
-            result = df.to_json(orient="records", force_ascii=False)
-            if truncated:
-                return json.dumps({
-                    "warning": "结果超过 500 行，已截断",
-                    "data": json.loads(result)
-                }, ensure_ascii=False)
-            return result
+        if _RAW_CONN is None:
+            try:
+                # 尝试连本地持久化数据库以复用物理表与索引
+                conn = duckdb.connect(DB_PATH, read_only=True)
+                conn.execute("SELECT 1 FROM clean LIMIT 1")
+                _RAW_CONN = conn
+            except Exception:
+                # 防御性 Fallback：内存连接 + 临时 Parquet 视图
+                _RAW_CONN = duckdb.connect(":memory:")
+                clean_path = CLEAN_DATA_PATH.replace("\\", "/")
+                _RAW_CONN.execute(f"CREATE OR REPLACE VIEW clean AS SELECT * FROM read_parquet('{clean_path}')")
+                _RAW_CONN.execute("SET search_path=main")
+            
+        df = _RAW_CONN.execute(sql).fetchdf()
+        truncated = len(df) > 500
+        if truncated:
+            df = df.head(500)
+        result = df.to_json(orient="records", force_ascii=False)
+        if truncated:
+            return json.dumps({
+                "warning": "结果超过 500 行，已截断",
+                "data": json.loads(result)
+            }, ensure_ascii=False)
+        return result
     except Exception as e:
         return json.dumps({"error": str(e)}, ensure_ascii=False)
+
 
 
 def rule_based_review(text: str) -> tuple[bool, str]:
     """
     规则验证（内部调用，不作为 LLM tool）。
     返回 (passed: bool, feedback: str)
+
+    v2.0 — 增强版，委托到 agent/reviewer.py 执行完整校验：
+      - B-001~B-004: 数字支撑、模糊词、字数、必要段落（阻断级）
+      - D-001~D-006: 禁止用语、Day7周末效应、维度标注、逻辑检查、窗口限制
+      - 兼容旧接口 (passed, feedback) tuple
     """
+    try:
+        from agent.reviewer import rule_based_review as _enhanced_review
+        return _enhanced_review(text)
+    except Exception as e:
+        # Fallback: 旧版简单检查
+        pass
+
     issues = []
 
-    # 1. 数字数量检查（阿拉伯数字 + 中文数字）
+    # 1. 数字数量检查
     arabic = re.findall(r"\d+\.?\d*%?", text)
     chinese_num = re.findall(r"[一二三四五六七八九十百千万亿]+", text)
     total_nums = len(arabic) + len(chinese_num)

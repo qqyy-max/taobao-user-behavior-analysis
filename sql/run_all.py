@@ -1,23 +1,29 @@
 """
-淘宝用户行为分析 — 全流程 SQL 编排器 (v2.0)
+淘宝用户行为分析 — 全流程 SQL 编排器 (v2.3)
 ==============================================
-按分层顺序执行 8 个 SQL 文件：
-  00_init.sql            → 共享基础层（clean 视图 + user_base_metrics）
-  01_profiling.sql       → profiling_summary
-  02_funnel_retention.sql → funnel_summary, cohort_retention_detail
-  03_behavior_analysis.sql → daily/hourly/session 表
-  04_product_analysis.sql  → category/item_conversion
-  05_user_analysis.sql     → user_profile, user_segment_summary
-  06_feature_mart.sql      → user_features (→ Python sklearn)
-  07_export_mart.sql       → 统一导出 Parquet (→ Power BI)
+按分层顺序执行 14 个 SQL 文件：
+  00_init.sql                       → 共享基础层（clean 视图 + user_base_metrics）
+  01_profiling.sql                  → profiling_summary
+  02_funnel_retention.sql           → funnel_summary, cohort_retention_detail
+  02_behavior_path_signal.sql       → user_behavior_path, path_conversion_signal, path_sankey
+  03_behavior_analysis.sql          → daily/hourly/session 表
+  04_product_analysis.sql           → category/item_conversion
+  05_user_analysis.sql              → user_profile, user_segment_summary
+  05_cart_abandon_analysis.sql      → cart_abandon_users, cart_abandon_summary
+  05_user_behavior_segmentation.sql → user_behavior_segment, segment_summary, segment_action_matrix
+  06_feature_mart.sql               → user_features (→ Python sklearn)
+  07_anomaly_attribution.sql        → weekend/hourly/product 异动归因表
+  07_export_mart.sql                → 统一导出 Parquet (→ Power BI)
+  08_strategy_validation_base.sql   → v1/v2/v3 实验分组模拟基础表
+  08_powerbi_supplement.sql         → Power BI 增强补充表
 
 用法:
     python sql/run_all.py                      # 全部执行 + 自动导出
     python sql/run_all.py --show-tables        # 列出所有业务表
     python sql/run_all.py --show funnel_summary # 查看指定表内容
     python sql/run_all.py --skip-export        # 跳过导出层
-    python sql/run_all.py --step 03            # 仅执行到 03
-    python sql/run_all.py --from 04            # 从 04 开始执行（断点续跑）
+    python sql/run_all.py --step 05            # 仅执行到 05
+    python sql/run_all.py --from 05            # 从 05 开始执行（断点续跑）
     python sql/run_all.py --dry-run            # 仅打印执行计划
     python sql/run_all.py --quiet              # 减少输出
 """
@@ -43,29 +49,52 @@ for d in ["data/mart", "data/features", "data/processed", "data/raw"]:
 
 # ── SQL 文件定义（按执行顺序）───────────────────────────────
 SQL_FILES = [
-    ("00_init.sql",             "共享基础层"),
-    ("01_profiling.sql",        "数据画像层"),
-    ("02_funnel_retention.sql", "漏斗 & 留存层"),
-    ("03_behavior_analysis.sql","行为分析层"),
-    ("04_product_analysis.sql", "商品 & 类目分析层"),
-    ("05_user_analysis.sql",    "用户分析层"),
-    ("06_feature_mart.sql",     "特征宽表层 (→ Python)"),
-    ("07_export_mart.sql",      "统一导出层 (→ Power BI)"),
+    ("00_init.sql",                       "共享基础层"),
+    ("01_profiling.sql",                  "数据画像层"),
+    ("02_funnel_retention.sql",           "行为渗透率 & 短周期回访层"),
+    ("02_behavior_path_signal.sql",       "非线性行为路径与转化信号"),
+    ("03_behavior_analysis.sql",          "行为分析层"),
+    ("04_product_analysis.sql",           "商品 & 类目分析层"),
+    ("05_user_analysis.sql",              "用户分析层"),
+    ("05_cart_abandon_analysis.sql",      "加购未购买用户专题"),
+    ("05_user_behavior_segmentation.sql", "用户行为规则分层"),
+    ("06_feature_mart.sql",               "特征宽表层 (→ Python)"),
+    ("07_anomaly_attribution.sql",        "异动归因专题"),
+    ("07_export_mart.sql",                "统一导出层 (→ Power BI)"),
+    ("08_strategy_validation_base.sql",   "策略验证模拟基础表"),
+    ("08_powerbi_supplement.sql",         "Power BI 增强补充表"),
+    ("10_agent_metric_views.sql",         "Agent 专用指标视图"),
 ]
 
 # 各 SQL 文件的输出表（用于依赖验证）
 EXPECTED_TABLES = {
-    "00_init.sql":             ["dim_date", "user_base_metrics", "category_base_stats"],
-    "01_profiling.sql":        ["profiling_summary"],
-    "02_funnel_retention.sql": ["funnel_summary", "user_conversion_summary",
-                                 "cohort_retention_detail", "cohort_retention_summary"],
-    "03_behavior_analysis.sql":["daily_behavior_summary", "hourly_behavior_summary",
-                                 "weekday_behavior_summary", "session_summary", "session_stats"],
-    "04_product_analysis.sql": ["category_conversion", "item_conversion",
-                                 "high_exposure_low_conversion_items"],
-    "05_user_analysis.sql":    ["user_profile", "user_frequency_segment", "user_segment_summary"],
-    "06_feature_mart.sql":     ["user_features"],
-    "07_export_mart.sql":      [],  # 导出层，不创建表
+    "00_init.sql":                       ["dim_date", "user_base_metrics", "category_base_stats"],
+    "01_profiling.sql":                  ["profiling_summary"],
+    "02_funnel_retention.sql":           ["funnel_summary", "user_conversion_summary",
+                                           "cohort_retention_detail", "cohort_retention_summary"],
+    "02_behavior_path_signal.sql":       ["user_behavior_path", "path_conversion_signal", "path_sankey"],
+    "03_behavior_analysis.sql":          ["daily_behavior_summary", "hourly_behavior_summary",
+                                           "weekday_behavior_summary", "session_summary", "session_stats"],
+    "04_product_analysis.sql":           ["category_conversion", "item_conversion",
+                                           "high_exposure_low_conversion_items"],
+    "05_user_analysis.sql":              ["user_profile", "user_frequency_segment", "user_segment_summary"],
+    "05_cart_abandon_analysis.sql":      ["cart_abandon_users", "cart_abandon_item_detail",
+                                           "cart_buyer_comparison", "cart_abandon_summary"],
+    "05_user_behavior_segmentation.sql": ["user_behavior_segment", "segment_summary", "segment_action_matrix"],
+    "06_feature_mart.sql":               ["user_features"],
+    "07_anomaly_attribution.sql":        ["weekend_anomaly_summary", "weekend_behavior_mix",
+                                           "hourly_anomaly_summary", "morning_evening_comparison",
+                                           "high_exposure_low_conversion_category",
+                                           "product_efficiency_anomaly_summary"],
+    "07_export_mart.sql":                [],  # 导出层，不创建表
+    "08_strategy_validation_base.sql":   ["v1_coupon_experiment_users", "v2_welcome_coupon_users",
+                                           "v3_exposure_governance_users", "v3_top1000_helc_items"],
+    "08_powerbi_supplement.sql":         ["funnel_path_detail", "search_direct_items",
+                                           "search_direct_by_category", "cluster_temporal_profile"],
+    "10_agent_metric_views.sql":         ["agent_user_cluster", "agent_user_full_profile",
+                                           "agent_daily_trend", "agent_hourly_efficiency",
+                                           "agent_segment_overview", "agent_cart_abandon_overview",
+                                           "agent_product_health", "agent_weekend_workday_comparison"],
 }
 
 
@@ -224,7 +253,7 @@ def verify_tables(con: duckdb.DuckDBPyConnection, filename: str, logger: logging
 
     existing = set(
         row[0] for row in
-        con.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        con.execute("SELECT name FROM sqlite_master WHERE type IN ('table', 'view')").fetchall()
     )
     missing = [t for t in expected if t not in existing]
     if missing:
@@ -412,7 +441,9 @@ def main():
         # ── 下一步提示 ──
         print("""
 下一步:
-  * Power BI:  导入 data/mart/*.parquet（13 张表 + 2 张维度表）
+  * Power BI:  导入 data/mart/*.parquet（17 张表 + 2 张维度表）
+  * 行为路径:  查询 user_behavior_path, path_conversion_signal, path_sankey
+  * 加购专题:  查询 cart_abandon_users, cart_buyer_comparison, cart_abandon_summary
   * Python 聚类: df = pd.read_parquet("data/features/user_features.parquet")
   * 查看表:     python sql/run_all.py --show-tables
   * 导出 CSV:   python -c "import duckdb; duckdb.connect('data/analysis.db').execute(

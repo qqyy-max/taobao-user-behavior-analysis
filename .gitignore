@@ -1,26 +1,30 @@
-# Exclude data folder and compressed user data
+# 数据与导出文件
 data/
 user_data.rar
-#
-.gitignore
-# Exclude local logs and notes
+exports/
+docs/
+
+# 本地日志与临时记录
 记录.txt
 experiment_log.md
 insight_log.md
+reports/
+outputs/
 
-# Exclude test scripts
+# 测试与规划脚本
 test.py
 check_tables.py
+implementation_plan.md
 
-# API 凭证，不要提交
+# 本地配置与凭证
 src/config.py
-# Claude
-.claude/settings.local.json
 
-# Python
+# IDE / 助手配置
+.claude/settings.json
+.claude/settings.local.json
+agent/test_results.json
+claude.md
+
+# Python 缓存
 __pycache__/
 *.pyc
-
-# 导出文件
-exports/
-

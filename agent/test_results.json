@@ -1,0 +1,197 @@
+{
+  "timestamp": "2026-06-11 23:48:32",
+  "mode": "offline",
+  "provider": "N/A",
+  "total_tests": 8,
+  "passed": 8,
+  "pass_rate_pct": 100.0,
+  "results": [
+    {
+      "test_id": "T1",
+      "test_title": "指标口径查询",
+      "question": "购买率怎么算的？行为维度和用户维度有什么区别？",
+      "response": "【数据摘要】\n- 行为维度购买率：全天行为中购买行为的占比 = buy_cnt / total_actions，约 2.0%（来源：daily_behavior_summary.buy_rate_pct）\n- 用户维度购买率：至少购买过1次的用户占全量用户的比例 = is_buyer=1的用户 / 全部用户，约 68.0%（来源：user_conversion_summary.buy_rate_pct）\n- 全量用户 287,004 人，购买用户约 195,000 人\n\n【增量洞察】\n行为维度和用户维度是完全不同的概念。行为维度表示购买动作的稀有度（每100次行为中约2次是购买），用户维度表示有多少用户至少在窗口内完成过1次购买。两者均为窗口内数据，不外推。\n\n【数据局限】\n仅 9 天窗口，无法推断长期购买习惯。行为维度受 PV 量级影响大——PV 越多分母越大。\n",
+      "response_length": 388,
+      "elapsed_sec": 0,
+      "reviewer_passed": true,
+      "reviewer_feedback": "【验证通过 ✓】",
+      "reviewer_stats": {
+        "total_checks": 12,
+        "passed_checks": 12,
+        "pass_rate": 100.0,
+        "blocker_total": 3,
+        "blocker_passed": 3,
+        "warnings": 0
+      },
+      "reviewer_warnings": [],
+      "strategy_review": null,
+      "mode": "offline"
+    },
+    {
+      "test_id": "T2",
+      "test_title": "加购未购用户分析",
+      "question": "加购未购买的用户有多少？他们有什么特征？",
+      "response": "【数据摘要】\n- 加购未购用户数：60,891 人（来源：cart_abandon_summary.total_cart_abandon_users）\n- 占加购用户比例：28.3%（60,891 / 215,167）\n- 人均加购商品 5.9 件，跨越 3.9 个类目\n- 66.91% 在最近1天有加购行为，82.15% 在最近3天有加购行为\n- 人均活跃天数 6.7 天，人均日均 PV 11.5 次\n\n【增量洞察】\n加购未购用户活跃度不低（6.7天），说明他们持续在平台浏览但未完成购买。超过 2/3 在最近1天有加购行为，建议在加购后 24-48h 内触达。窗口内数据表明存在短周期转化机会。\n\n【数据局限】\n仅 9 天窗口，\"未购\"仅指窗口内未购买。用户可能在其他平台已完成购买。加购可能是收藏替代行为。\n",
+      "response_length": 359,
+      "elapsed_sec": 0,
+      "reviewer_passed": true,
+      "reviewer_feedback": "【验证通过 ✓】",
+      "reviewer_stats": {
+        "total_checks": 12,
+        "passed_checks": 12,
+        "pass_rate": 100.0,
+        "blocker_total": 3,
+        "blocker_passed": 3,
+        "warnings": 0
+      },
+      "reviewer_warnings": [],
+      "strategy_review": null,
+      "mode": "offline"
+    },
+    {
+      "test_id": "T3",
+      "test_title": "用户分层查询",
+      "question": "4 类运营分层各有多少人？购买率差异如何？",
+      "response": "【数据摘要】\n- P0 (window_repeat_buyer)：窗口内购买≥2次，buyer_rate_pct = 79.3%\n- P1 (cart_abandon_user)：加购但未购买，60,891人 (21.2%)，buyer_rate_pct = 0%（定义约束）\n- P2 (high_browse_weak_buy_signal)：高浏览未购买，buyer_rate_pct = 0%（定义约束）\n- P3 (low_active_no_purchase)：其余未购买用户，buyer_rate_pct = 0%（定义约束）\n- REF (single_purchase_user)：单次购买用户(参照组)，buyer_rate_pct = 100%（定义约束）\n\n【增量洞察】\n各层购买率差距源自定义约束：P1-P3 层因定义 is_buyer=0 所以 buyer_rate_pct 严格为 0%。分层主要比较的是规模和人均 PV、活跃天数等行为特征。P0 层和 REF 层合计占用户约 68%（即全体购买用户）。\n\n【数据局限】\n分层基于 9 天窗口内行为，不推断长期价值。P1-P3 层购买率均为 0% 是定义使然，不反映真实转化潜力。\n",
+      "response_length": 532,
+      "elapsed_sec": 0,
+      "reviewer_passed": true,
+      "reviewer_feedback": "【验证通过 ✓】\n⚠️ 1 个警告项:\n  - [D-003] 维度标注: 提及购买率/转化率 2 次，⚠️ 未标注「行为维度」或「用户维度」",
+      "reviewer_stats": {
+        "total_checks": 12,
+        "passed_checks": 11,
+        "pass_rate": 91.7,
+        "blocker_total": 3,
+        "blocker_passed": 3,
+        "warnings": 1
+      },
+      "reviewer_warnings": [
+        "维度标注: 提及购买率/转化率 2 次，⚠️ 未标注「行为维度」或「用户维度」"
+      ],
+      "strategy_review": null,
+      "mode": "offline"
+    },
+    {
+      "test_id": "T4",
+      "test_title": "周末异动归因",
+      "question": "周末购买率为什么比工作日低？",
+      "response": "【数据摘要】\n- 周末 DAU 较工作日 + 16%（来源：weekday_behavior_summary）\n- 周末行为级购买率较工作日下降约 -10%\n- 周末人均 PV 更高，行为类型中浏览占比提升\n- 周末加购率略低于工作日\n\n【增量洞察】\n周末用户行为模式偏向浏览（\"逛\"型流量增加），人均行为次数提升但购买决策速度下降。3个周末日 vs 6个工作日样本不平衡是需要注意的限制。建议周末推内容型运营（直播/短视频）而非硬促销。\n\n【数据局限】\n仅 3 个周末日 vs 6 个工作日样本，统计检验效力有限。无法区分\"周末专属用户\"和\"全周期活跃用户\"的行为模式切换。第 2 个周末的延迟购买不可观测（窗口末尾）。\n",
+      "response_length": 312,
+      "elapsed_sec": 0,
+      "reviewer_passed": true,
+      "reviewer_feedback": "【验证通过 ✓】\n⚠️ 2 个警告项:\n  - [D-003] 维度标注: 提及购买率/转化率 1 次，⚠️ 未标注「行为维度」或「用户维度」\n  - [D-005] ⚠️ 提及分析结论但未标注「窗口内/9天」限制",
+      "reviewer_stats": {
+        "total_checks": 12,
+        "passed_checks": 10,
+        "pass_rate": 83.3,
+        "blocker_total": 3,
+        "blocker_passed": 3,
+        "warnings": 2
+      },
+      "reviewer_warnings": [
+        "维度标注: 提及购买率/转化率 1 次，⚠️ 未标注「行为维度」或「用户维度」",
+        "⚠️ 提及分析结论但未标注「窗口内/9天」限制"
+      ],
+      "strategy_review": null,
+      "mode": "offline"
+    },
+    {
+      "test_id": "T5",
+      "test_title": "时段效率分析",
+      "question": "为什么夜间流量高但购买少？上午反而购买多？",
+      "response": "【数据摘要】\n- 流量峰值：21:00（约 243 万次行为）\n- 购买率峰值：10:00（行为维度 2.62%）\n- 购买率谷值：21:00（行为维度 1.73%）\n- 时段分组：上午(6-11)购买率最高，晚间(18-21)流量最高但购买率低\n\n【增量洞察】\n存在时序错位——流量峰值与购买率峰值不在同一时段。夜间用户以\"逛\"为主（睡前打发时间），上午用户目的明确（买了就走）。建议促销 Push 调整至 9:30（购买率窗口前），限时秒杀安排在 10:00-11:00 和 14:00-15:00。\n\n【数据局限】\n无法区分主动搜索和被动推荐来源的流量差异。小时数据按行为维度计算，与用户维度购买率含义不同。\n",
+      "response_length": 308,
+      "elapsed_sec": 0,
+      "reviewer_passed": true,
+      "reviewer_feedback": "【验证通过 ✓】\n⚠️ 1 个警告项:\n  - [D-005] ⚠️ 提及分析结论但未标注「窗口内/9天」限制",
+      "reviewer_stats": {
+        "total_checks": 12,
+        "passed_checks": 11,
+        "pass_rate": 91.7,
+        "blocker_total": 3,
+        "blocker_passed": 3,
+        "warnings": 1
+      },
+      "reviewer_warnings": [
+        "⚠️ 提及分析结论但未标注「窗口内/9天」限制"
+      ],
+      "strategy_review": null,
+      "mode": "offline"
+    },
+    {
+      "test_id": "T6",
+      "test_title": "商品效率查询",
+      "question": "高曝光低转化的商品有多少？什么特征？",
+      "response": "【数据摘要】\n- 高曝光低转化商品：51.3 万件（来源：product_efficiency_anomaly_summary.helc_item_cnt）\n- 阈值定义：PV ≥ P75（动态计算）且购买率 ≤ MEDIAN\n- 搜索直达商品：11,781 件（buy>0 且 pv=0）\n- 全局商品 2,584,912 件，89.12% 为窗口内零购买商品\n\n【增量洞察】\n高曝光低转化商品是用户行为层面的曝光效率异常线索。当前数据缺少曝光来源字段，无法区分自然推荐与商业化推广，因此不直接将高曝光低购买信号等同于推荐降权决策。搜索直达商品 11,781 件可能存在数据采集差异——某些场景的浏览行为未被记录为 pv。\n\n【数据局限】\n无商品价格/评分/详情页质量数据。无曝光来源字段，无法区分自然推荐与商业化推广。阈值（P75/中位数）为动态计算，不同数据窗口可能不同。\n",
+      "response_length": 390,
+      "elapsed_sec": 0,
+      "reviewer_passed": true,
+      "reviewer_feedback": "【验证通过 ✓】\n⚠️ 1 个警告项:\n  - [D-003] 维度标注: 提及购买率/转化率 1 次，⚠️ 未标注「行为维度」或「用户维度」",
+      "reviewer_stats": {
+        "total_checks": 12,
+        "passed_checks": 11,
+        "pass_rate": 91.7,
+        "blocker_total": 3,
+        "blocker_passed": 3,
+        "warnings": 1
+      },
+      "reviewer_warnings": [
+        "维度标注: 提及购买率/转化率 1 次，⚠️ 未标注「行为维度」或「用户维度」"
+      ],
+      "strategy_review": null,
+      "mode": "offline"
+    },
+    {
+      "test_id": "T7",
+      "test_title": "运营策略生成",
+      "question": "针对加购未购用户，设计一个运营策略",
+      "response": "【数据摘要】\n基于加购未购用户数据（60,891人，占加购用户28.3%），设计如下运营策略：\n\n【P0】加购未购用户限时折扣触达\n  - 目标群体：加购未购用户（60,891人），优先 days_since_last_cart ≤ 2 的用户\n  - 触达时机：加购后 24-48h 未购买时\n  - 具体动作：Push 推送\"您加购的商品库存紧张\" + 48h后发放 5% 限时折扣券（有效期 24h）\n  - 预期KPI：触达后购买转化率达到 10-15%（行业加购召回转化基准）\n\n【P1】加购未购用户加购商品降价提醒\n  - 目标群体：加购未购用户中活跃天数 ≥ 5 的用户\n  - 触达时机：工作日 9:30（购买率窗口前）\n  - 具体动作：站内信发送加购商品列表 + \"大家都在买\"社交推荐\n  - 预期KPI：点击率 ≥ 8%，购买转化率 ≥ 5%\n\n【数据局限】\n无真实价格数据，ROI 为估算。策略为离线设计方案，非实际业务执行结果。窗口内数据可能高估加购未购规模（延迟购买）。\n",
+      "response_length": 451,
+      "elapsed_sec": 0,
+      "reviewer_passed": true,
+      "reviewer_feedback": "【验证通过 ✓】\n⚠️ 1 个警告项:\n  - [D-003] 维度标注: 提及购买率/转化率 3 次，⚠️ 未标注「行为维度」或「用户维度」",
+      "reviewer_stats": {
+        "total_checks": 15,
+        "passed_checks": 14,
+        "pass_rate": 93.3,
+        "blocker_total": 4,
+        "blocker_passed": 4,
+        "warnings": 1
+      },
+      "reviewer_warnings": [
+        "维度标注: 提及购买率/转化率 3 次，⚠️ 未标注「行为维度」或「用户维度」"
+      ],
+      "strategy_review": {
+        "passed": true,
+        "feedback": "【策略验证通过 ✓】"
+      },
+      "mode": "offline"
+    },
+    {
+      "test_id": "T8",
+      "test_title": "A/B 实验设计",
+      "question": "帮我设计一个加购未购用户的 A/B 实验方案",
+      "response": "【数据摘要】\n基于加购未购用户（60,891人），设计 A/B 实验方案：\n\n【实验设计】\n- 实验对象：加购未购用户中 days_since_last_cart ≤ 3 的用户\n- 分组方式：随机分为 A/B/C 3 组，每组约 16,600 人\n- A 组（实验组1）：加购 48h 后发放 5% 限时折扣券（有效期 24h）\n- B 组（实验组2）：加购 48h 后 Push \"您的加购商品还在等您\"（无折扣）\n- C 组（对照组）：不做任何干预\n\n【核心指标】\n- 主指标：触达后 7 天窗口内购买转化率（目标：A组 ≥ 15%, B组 ≥ 8%）\n- 辅助指标：Push 打开率、优惠券核销率、客单价\n- 显著性检验：χ² 检验（转化率差异），α = 0.05，power ≥ 0.8\n\n【数据局限】\n⚠️ 这是离线设计方案，非实际实验结果。离线数据无法执行真实 A/B 测试。无真实价格数据，ROI 评估需假设客单价。窗口限制（9天）可能影响观察窗口设计。\n",
+      "response_length": 436,
+      "elapsed_sec": 0,
+      "reviewer_passed": true,
+      "reviewer_feedback": "【验证通过 ✓】\n⚠️ 1 个警告项:\n  - [D-003] 维度标注: 提及购买率/转化率 2 次，⚠️ 未标注「行为维度」或「用户维度」",
+      "reviewer_stats": {
+        "total_checks": 15,
+        "passed_checks": 14,
+        "pass_rate": 93.3,
+        "blocker_total": 4,
+        "blocker_passed": 4,
+        "warnings": 1
+      },
+      "reviewer_warnings": [
+        "维度标注: 提及购买率/转化率 2 次，⚠️ 未标注「行为维度」或「用户维度」"
+      ],
+      "strategy_review": {
+        "passed": true,
+        "feedback": "【策略验证通过 ✓】"
+      },
+      "mode": "offline"
+    }
+  ]
+}

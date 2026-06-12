@@ -15,8 +15,12 @@
 -- ============================================================
 -- 1. 共享数据源视图（全局唯一，不再在每个文件中重复定义）
 -- ============================================================
-CREATE OR REPLACE VIEW clean AS
-SELECT * FROM read_parquet('data/clean_data.parquet');
+DROP TABLE IF EXISTS clean;
+DROP VIEW IF EXISTS clean;
+CREATE TABLE clean AS SELECT * FROM read_parquet('data/clean_data.parquet');
+CREATE INDEX idx_clean_user_id ON clean(user_id);
+CREATE INDEX idx_clean_dt ON clean(dt);
+CREATE INDEX idx_clean_behavior ON clean(behavior_type);
 
 
 -- ============================================================
@@ -104,4 +108,5 @@ GROUP BY category_id;
 SELECT '=== 00_init 执行完成 ===' AS status;
 SELECT 'dim_date'             AS tbl, COUNT(*) AS rows FROM dim_date
 UNION ALL SELECT 'user_base_metrics', COUNT(*) FROM user_base_metrics
-UNION ALL SELECT 'category_base_stats', COUNT(*) FROM category_base_stats;
+UNION ALL SELECT 'category_base_stats', COUNT(*) FROM category_base_stats
+UNION ALL SELECT 'clean', COUNT(*) FROM clean;
